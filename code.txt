@@ -1,0 +1,157 @@
+import pandas as pd
+import numpy as np
+from sklearn import preprocessing
+import seaborn as sns
+import matplotlib.pyplot as plt
+from pandas.plotting import scatter_matrix
+from numpy.random import RandomState
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.naive_bayes import GaussianNB
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.svm import SVC
+from sklearn.metrics import mean_squared_error, accuracy_score, confusion_matrix, classification_report
+
+# Load the dataset
+data = pd.read_csv('kidney_disease.csv').drop('id', axis=1)
+data.dtypes
+
+# Convert categorical variables to numerical
+le = preprocessing.LabelEncoder()
+categorical_cols = ["rbc","pc","pcc","ba","pcv","wc","rc","htn","dm","cad","appet","pe","ane","classification"]
+for col in categorical_cols:
+    data[col] = le.fit_transform(data[col])
+    print(le.classes_)
+
+data.dtypes
+
+data.head(5)
+
+# filling null values
+for col in data.columns:
+    data[col].fillna(data[col].median(),inplace=True)
+data.head(5)
+
+data.describe()
+
+# checking whether are any null values
+data.isnull().sum()
+
+data.hist(bins=50,figsize=(20,15))
+plt.show()
+
+correlation_figure, correlation_axis = plt.subplots(figsize = (30,25))
+corr_mtrx = data.corr()
+correlation_axis = sns.heatmap(corr_mtrx, annot= True)
+
+plt.xticks(rotation = 30, horizontalalignment = 'right', fontsize = 20)
+plt.yticks(fontsize = 20)
+plt.show()
+
+corr_matrix = data.corr()
+corr_matrix['classification'].sort_values(ascending=False)
+
+attributes = ['classification','hemo','sg','pcv','sod','pc','rc']
+scatter_matrix(data[attributes],figsize=(12,8))
+
+# Spliting entire data into Train and Test Segments
+rng = RandomState()
+
+train = data.sample(frac=0.7, random_state=rng)
+test = data.loc[~data.index.isin(train.index)]
+
+test.head(5)
+
+data = train[attributes]
+data.head(5)
+
+label = data['classification']
+data = data.drop('classification',axis=1)
+data.head(5)
+
+# Split the data into train and test sets
+X_train, X_test, y_train, y_test = train_test_split(data, label, test_size=0.2, random_state=42)
+
+def display_results(y_test,y_pred):
+    # Print the Confusion Matrix and slice it into four pieces
+    cm = confusion_matrix(y_test,y_pred)
+    # visualize confusion matrix with seaborn heatmap
+    cm_matrix = pd.DataFrame(data=cm)
+    print("Model Accuracy:",accuracy_score(y_test,y_pred))
+    sns.heatmap(cm_matrix, annot=True, fmt='d', cmap='YlGnBu')
+
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
+# Linear Regression
+reg_model = LinearRegression()
+reg_model.fit(X_train, y_train)
+reg_pred = reg_model.predict(X_test)
+
+# Calculate metrics
+mse = mean_squared_error(y_test, reg_pred)
+rmse = np.sqrt(mse)
+mae = mean_absolute_error(y_test, reg_pred)
+r2 = r2_score(y_test, reg_pred)
+
+# Print metrics
+print("Mean Squared Error (MSE):", mse)
+print("Root Mean Squared Error (RMSE):", rmse)
+print("Mean Absolute Error (MAE):", mae)
+print("R-squared (R²):", r2)
+
+# Logistic Regression
+clf_model = LogisticRegression(random_state=0, max_iter=2000, solver='liblinear')
+clf_model.fit(X_train, y_train)
+clf_pred = clf_model.predict(X_test)
+clf_accuracy = accuracy_score(y_test, clf_pred)
+print("Logistic Regression Accuracy:", clf_accuracy)
+print(classification_report(y_test, clf_pred))
+
+display_results(y_test,clf_pred) 
+
+#tesing on test split
+test_label = test['classification']
+test_data = test[attributes].drop('classification',axis=1)
+test_data.head(5) 
+
+predict = clf_model.predict(test_data)
+display_results(test_label,predict)
+
+# Naive Bayes
+nb_model = GaussianNB()
+nb_model.fit(X_train, y_train)
+nb_pred = nb_model.predict(X_test)
+nb_accuracy = accuracy_score(y_test, nb_pred)
+print("Naive Bayes Accuracy:", nb_accuracy)
+print(classification_report(y_test, nb_pred))
+
+display_results(y_test,nb_pred)
+
+# Random Forest
+rf_model = RandomForestClassifier()
+rf_model.fit(X_train, y_train)
+rf_pred = rf_model.predict(X_test)
+rf_accuracy = accuracy_score(y_test, rf_pred)
+print("Random Forest Accuracy:", rf_accuracy)
+print(classification_report(y_test, rf_pred))
+
+display_results(y_test,rf_pred)
+
+#SVM
+from sklearn.svm import SVC
+from sklearn import svm
+
+svm_model = svm.SVC(kernel='linear')
+svm_model.fit(X_train,y_train)
+svm_model_score = round(svm_model.score(X_train, y_train) * 100, 2)
+svm_pred = svm_model.predict(X_test)
+svm_accuracy = accuracy_score(y_test, svm_pred)
+print("Support Vector Machine Accuracy:",svm_accuracy)
+print(classification_report(y_test, svm_pred))
+
+display_results(y_test,svm_pred)
+
+# Comparing all the models
+models = pd.DataFrame({
+    'Model': [ 'Linear Regression', 'Logistic Regression', 'Naive Bayes','Random Forest','SVM Model'],
+    'Model Accuracy': [r2, clf_accuracy, nb_accuracy, rf_accuracy, svm_accuracy]})
+models.sort_values(by='Model Accuracy', ascending=False)
